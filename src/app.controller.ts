@@ -315,6 +315,7 @@ export class AppController {
       chainId: body.chainId || 'D',
       status: 'pending',
       createdAt: new Date(),
+      updatedAt: new Date(),
       expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       opaque: body.opaque || null,
       digest: body.digest || null,
