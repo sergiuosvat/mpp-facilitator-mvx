@@ -1,6 +1,14 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { Session, Prisma } from '@prisma/client';
+import { Address } from '@multiversx/sdk-core';
+import { UserVerifier } from '@multiversx/sdk-wallet';
+import { keccak256 } from 'js-sha3';
 
 @Injectable()
 export class SessionService {
@@ -51,13 +59,32 @@ export class SessionService {
     // Basic cumulative check
     const currentAmount = BigInt(session.lastVoucherAmount);
     const newAmount = BigInt(data.amount);
-    
-    if (newAmount <= currentAmount && BigInt(data.nonce) <= session.lastVoucherNonce) {
-       // In a real state channel, we only care if the new voucher is "better" (higher cumulative or higher nonce)
-       // Here we strictly expect progress to avoid replay of old vouchers if not intended.
+
+    if (
+      newAmount <= currentAmount &&
+      BigInt(data.nonce) <= session.lastVoucherNonce
+    ) {
+      throw new BadRequestException(
+        'Voucher must be cumulative or have a higher nonce than the previous one',
+      );
     }
 
-    this.logger.log(`Updating session ${channelId} with voucher: amount=${data.amount}, nonce=${data.nonce}`);
+    // signature verification
+    const isValid = await this.verifyVoucher({
+      employer: session.employer,
+      channelId: session.channelId,
+      amount: data.amount,
+      nonce: data.nonce,
+      signature: data.signature,
+    });
+
+    if (!isValid) {
+      throw new BadRequestException('Invalid voucher signature');
+    }
+
+    this.logger.log(
+      `Updating session ${channelId} with verified voucher: amount=${data.amount}, nonce=${data.nonce}`,
+    );
 
     return this.prisma.session.update({
       where: { channelId },
@@ -82,5 +109,50 @@ export class SessionService {
         status: 'OPEN',
       },
     });
+  }
+
+  private async verifyVoucher(data: {
+    employer: string;
+    channelId: string;
+    amount: string;
+    nonce: number;
+    signature: string;
+  }): Promise<boolean> {
+    const contractAddr = process.env.MPP_SESSION_CONTRACT || '';
+    if (!contractAddr) {
+      this.logger.warn(
+        'MPP_SESSION_CONTRACT not set, skipping signature verification',
+      );
+      return true;
+    }
+
+    try {
+      const employer = Address.newFromBech32(data.employer);
+      const contract = Address.newFromBech32(contractAddr);
+
+      const hasher = keccak256.create();
+      hasher.update(Buffer.from('mpp-session-v1'));
+      hasher.update(contract.getPublicKey());
+      hasher.update(Buffer.from(data.channelId, 'hex'));
+
+      // Amount as 32 bytes big endian
+      const amountBuf = Buffer.alloc(32);
+      const amountHex = BigInt(data.amount).toString(16).padStart(64, '0');
+      amountBuf.write(amountHex, 'hex');
+      hasher.update(amountBuf);
+
+      // Nonce as 8 bytes big endian
+      const nonceBuf = Buffer.alloc(8);
+      nonceBuf.writeBigUInt64BE(BigInt(data.nonce));
+      hasher.update(nonceBuf);
+
+      const message = Buffer.from(hasher.hex(), 'hex');
+      const verifier = UserVerifier.fromAddress(employer);
+
+      return verifier.verify(message, Buffer.from(data.signature, 'hex'));
+    } catch (err) {
+      this.logger.error(`Voucher verification failed: ${err}`);
+      return false;
+    }
   }
 }

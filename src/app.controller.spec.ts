@@ -6,17 +6,31 @@ import { StorageService } from './storage.service';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
-jest.mock('mppx/server', () => ({
-  Mppx: {
-    create: jest.fn().mockReturnValue({ compose: jest.fn() }),
-  },
-}), { virtual: true });
+jest.mock(
+  'mppx/server',
+  () => ({
+    Mppx: {
+      create: jest.fn().mockReturnValue({ compose: jest.fn() }),
+    },
+  }),
+  { virtual: true },
+);
 
-jest.mock('mppx-multiversx/server', () => ({
-  charge: jest.fn().mockImplementation((options) => ({ _method: 'charge', options })),
-  session: jest.fn().mockImplementation((options) => ({ _method: 'session', options })),
-  subscription: jest.fn().mockImplementation((options) => ({ _method: 'subscription', options })),
-}), { virtual: true });
+jest.mock(
+  'mppx-multiversx/server',
+  () => ({
+    charge: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'charge', options })),
+    session: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'session', options })),
+    subscription: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'subscription', options })),
+  }),
+  { virtual: true },
+);
 
 describe('AppController', () => {
   let appController: AppController;
@@ -28,17 +42,27 @@ describe('AppController', () => {
     // Mock the global Request/Response if not present (usually in node environment for fetch)
     if (typeof global.Request === 'undefined') {
       (global as any).Request = class Request {
-        constructor(public url: string, public options: any) {}
+        constructor(
+          public url: string,
+          public options: any,
+        ) {}
       };
     }
     if (typeof global.Response === 'undefined') {
       (global as any).Response = class Response {
-        constructor(public body: any, public init: any) {
+        constructor(
+          public body: any,
+          public init: any,
+        ) {
           this.headers = new Map();
         }
         headers: Map<string, string>;
         async text() {
-          if (this.body && this.body.includes && this.body.includes('challenge')) {
+          if (
+            this.body &&
+            this.body.includes &&
+            this.body.includes('challenge')
+          ) {
             return '<Payment id="123" />';
           }
           return this.body || '';
@@ -85,7 +109,7 @@ describe('AppController', () => {
   const mockReq = (url: string = '/test', method: string = 'GET') => {
     return {
       protocol: 'http',
-      get: (header: string) => header === 'host' ? 'localhost' : undefined,
+      get: (header: string) => (header === 'host' ? 'localhost' : undefined),
       originalUrl: url,
       method,
       headers: {},
@@ -112,7 +136,7 @@ describe('AppController', () => {
         },
       });
       (mppxService.instance.compose as jest.Mock).mockReturnValue(composeFn);
-      
+
       const req = mockReq('/protected-resource');
       const res = mockRes();
 
@@ -120,7 +144,10 @@ describe('AppController', () => {
 
       expect(res.status).toHaveBeenCalledWith(402);
       expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
-      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/problem+json');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/problem+json',
+      );
     });
 
     it('should return 200 with resources if payment is valid', async () => {
@@ -153,7 +180,7 @@ describe('AppController', () => {
         },
       });
       (mppxService.instance.compose as jest.Mock).mockReturnValue(composeFn);
-      
+
       const req = mockReq('/session-resource');
       const res = mockRes();
 
@@ -178,7 +205,9 @@ describe('AppController', () => {
       await appController.getSessionResource(req, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.send).toHaveBeenCalledWith('Here is your continuous session data stream...');
+      expect(res.send).toHaveBeenCalledWith(
+        'Here is your continuous session data stream...',
+      );
     });
   });
 
@@ -192,7 +221,7 @@ describe('AppController', () => {
         },
       });
       (mppxService.instance.compose as jest.Mock).mockReturnValue(composeFn);
-      
+
       const req = mockReq('/subscription-resource');
       const res = mockRes();
 
@@ -217,7 +246,9 @@ describe('AppController', () => {
       await appController.getSubscriptionResource(req, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.send).toHaveBeenCalledWith('Welcome to your premium subscription content!');
+      expect(res.send).toHaveBeenCalledWith(
+        'Welcome to your premium subscription content!',
+      );
     });
   });
 
@@ -236,9 +267,13 @@ describe('AppController', () => {
       const req = mockReq();
       req.ip = '127.0.0.1';
       const payload: any = { sender: 'erd1fail' };
-      (relayerService.submitRelayedV3 as jest.Mock).mockRejectedValueOnce(new Error('Relayer failed'));
+      (relayerService.submitRelayedV3 as jest.Mock).mockRejectedValueOnce(
+        new Error('Relayer failed'),
+      );
 
-      await expect(appController.submitRelayedV3(payload, req)).rejects.toThrow(HttpException);
+      await expect(appController.submitRelayedV3(payload, req)).rejects.toThrow(
+        HttpException,
+      );
     });
   });
 
@@ -249,7 +284,9 @@ describe('AppController', () => {
     });
 
     it('should throw HTTP exception if relayer is not configured', () => {
-      (relayerService.getRelayerAddress as jest.Mock).mockReturnValueOnce(undefined);
+      (relayerService.getRelayerAddress as jest.Mock).mockReturnValueOnce(
+        undefined,
+      );
       expect(() => appController.getRelayerAddress()).toThrow(HttpException);
     });
   });

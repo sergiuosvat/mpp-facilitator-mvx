@@ -2,17 +2,31 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MppxService } from './mppx.service';
 import { VerifierService } from './verifier.service';
 
-jest.mock('mppx/server', () => ({
-  Mppx: {
-    create: jest.fn().mockReturnValue({ compose: jest.fn() }),
-  },
-}), { virtual: true });
+jest.mock(
+  'mppx/server',
+  () => ({
+    Mppx: {
+      create: jest.fn().mockReturnValue({ compose: jest.fn() }),
+    },
+  }),
+  { virtual: true },
+);
 
-jest.mock('mppx-multiversx/server', () => ({
-  charge: jest.fn().mockImplementation((options) => ({ _method: 'charge', options })),
-  session: jest.fn().mockImplementation((options) => ({ _method: 'session', options })),
-  subscription: jest.fn().mockImplementation((options) => ({ _method: 'subscription', options })),
-}), { virtual: true });
+jest.mock(
+  'mppx-multiversx/server',
+  () => ({
+    charge: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'charge', options })),
+    session: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'session', options })),
+    subscription: jest
+      .fn()
+      .mockImplementation((options) => ({ _method: 'subscription', options })),
+  }),
+  { virtual: true },
+);
 
 import { charge } from 'mppx-multiversx/server';
 
@@ -86,7 +100,7 @@ describe('MppxService', () => {
       'EGLD',
       undefined,
       undefined,
-      undefined
+      undefined,
     );
 
     await verifyCb({
@@ -108,7 +122,7 @@ describe('MppxService', () => {
       'USDC',
       'src',
       { key: 'val' },
-      'dig'
+      'dig',
     );
   });
 });

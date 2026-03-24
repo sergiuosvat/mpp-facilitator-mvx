@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { RelayerService, RelayedV3Payload } from './relayer.service';
 import { UserSigner } from '@multiversx/sdk-wallet';
 import { ProxyNetworkProvider } from '@multiversx/sdk-network-providers';
-import { Address, Transaction, TransactionComputer } from '@multiversx/sdk-core';
+import {
+  Address,
+  Transaction,
+  TransactionComputer,
+} from '@multiversx/sdk-core';
 import * as fs from 'fs';
 
 jest.mock('fs');
@@ -24,7 +28,9 @@ jest.mock('@multiversx/sdk-core', () => {
     }),
     TransactionComputer: jest.fn().mockImplementation(() => {
       return {
-        computeBytesForSigning: jest.fn().mockReturnValue(new Uint8Array([1, 2, 3])),
+        computeBytesForSigning: jest
+          .fn()
+          .mockReturnValue(new Uint8Array([1, 2, 3])),
       };
     }),
   };
@@ -120,39 +126,47 @@ describe('RelayerService', () => {
     it('should throw an error if signer is not configured', async () => {
       (fs.existsSync as jest.Mock).mockReturnValueOnce(false);
       const noSignerService = new RelayerService();
-      await expect(noSignerService.submitRelayedV3(payload)).rejects.toThrow('Relayer is not configured.');
+      await expect(noSignerService.submitRelayedV3(payload)).rejects.toThrow(
+        'Relayer is not configured.',
+      );
     });
 
     it('should throw an error if no relayer is set in payload', async () => {
       payload.relayer = '';
-      await expect(service.submitRelayedV3(payload)).rejects.toThrow('Relayed V3 requires payload.relayer to be set by the sender before signing.');
+      await expect(service.submitRelayedV3(payload)).rejects.toThrow(
+        'Relayed V3 requires payload.relayer to be set by the sender before signing.',
+      );
     });
 
     it('should throw an error if version < 2', async () => {
       payload.version = 1;
-      await expect(service.submitRelayedV3(payload)).rejects.toThrow('Relayed V3 requires transaction version >= 2.');
+      await expect(service.submitRelayedV3(payload)).rejects.toThrow(
+        'Relayed V3 requires transaction version >= 2.',
+      );
     });
 
     it('should throw an error if relayer address does not match', async () => {
       payload.relayer = 'erd1differentrelayer';
-      await expect(service.submitRelayedV3(payload)).rejects.toThrow('Invalid relayer address. Expected erd1relayerdummyaddress');
+      await expect(service.submitRelayedV3(payload)).rejects.toThrow(
+        'Invalid relayer address. Expected erd1relayerdummyaddress',
+      );
     });
 
     it('should successfully submit the transaction', async () => {
       const txHash = await service.submitRelayedV3(payload);
-      
+
       expect(Address.newFromBech32).toHaveBeenCalledWith(payload.receiver);
       expect(Address.newFromBech32).toHaveBeenCalledWith(payload.sender);
       expect(Address.newFromBech32).toHaveBeenCalledWith(payload.relayer);
       expect(Transaction).toHaveBeenCalled();
-      
+
       // Access the provider created inside the service
       // Verify sendTransaction was called
       expect(mockProvider.sendTransaction).toHaveBeenCalled();
-      
+
       expect(txHash).toBe('dummyTxHash');
     });
-    
+
     it('should successfully submit the transaction without data', async () => {
       payload.data = undefined;
       const txHash = await service.submitRelayedV3(payload);
@@ -162,13 +176,19 @@ describe('RelayerService', () => {
     });
 
     it('should throw an error if broadcast fails', async () => {
-      mockProvider.sendTransaction.mockRejectedValueOnce(new Error('api error'));
-      await expect(service.submitRelayedV3(payload)).rejects.toThrow('Broadcast failed: api error');
+      mockProvider.sendTransaction.mockRejectedValueOnce(
+        new Error('api error'),
+      );
+      await expect(service.submitRelayedV3(payload)).rejects.toThrow(
+        'Broadcast failed: api error',
+      );
     });
-    
+
     it('should throw an error if broadcast fails with non-error object', async () => {
       mockProvider.sendTransaction.mockRejectedValueOnce('string error');
-      await expect(service.submitRelayedV3(payload)).rejects.toThrow('Broadcast failed: string error');
+      await expect(service.submitRelayedV3(payload)).rejects.toThrow(
+        'Broadcast failed: string error',
+      );
     });
   });
 });

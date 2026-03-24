@@ -1,4 +1,12 @@
-import { Controller, Post, Get, Body, Param, Logger, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Logger,
+  UseInterceptors,
+} from '@nestjs/common';
 import { SessionService } from './session.service';
 
 @Controller('sessions')
