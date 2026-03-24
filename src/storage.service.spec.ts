@@ -1,10 +1,21 @@
 import { StorageService, SettlementRecord } from './storage.service';
+import { PrismaService } from './prisma.service';
 
 describe('StorageService', () => {
   let service: StorageService;
+  let prisma: PrismaService;
 
-  beforeEach(() => {
-    service = new StorageService();
+  beforeAll(() => {
+    prisma = new PrismaService();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
+  beforeEach(async () => {
+    await prisma.settlementRecord.deleteMany();
+    service = new StorageService(prisma);
   });
 
   it('should save and retrieve a record', async () => {
@@ -17,7 +28,7 @@ describe('StorageService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'pending',
-      createdAt: Date.now(),
+      createdAt: new Date(),
       expiresAt: null,
     };
 
@@ -45,7 +56,7 @@ describe('StorageService', () => {
       currency: 'USDC-c76f31',
       chainId: '1',
       status: 'pending',
-      createdAt: Date.now(),
+      createdAt: new Date(),
       expiresAt: null,
     };
 
@@ -67,8 +78,8 @@ describe('StorageService', () => {
       currency: 'WEGLD-bd4d79',
       chainId: 'T',
       status: 'pending',
-      createdAt: 12345,
-      expiresAt: '2026-12-31T00:00:00Z',
+      createdAt: new Date(12345),
+      expiresAt: new Date('2026-12-31T00:00:00Z'),
     };
 
     await service.save(record);
@@ -78,7 +89,7 @@ describe('StorageService', () => {
     expect(result!.receiver).toBe('erd1recv');
     expect(result!.currency).toBe('WEGLD-bd4d79');
     expect(result!.amount).toBe('999');
-    expect(result!.expiresAt).toBe('2026-12-31T00:00:00Z');
+    expect(result!.expiresAt).toEqual(new Date('2026-12-31T00:00:00Z'));
   });
 
   it('should purge expired pending records', async () => {
@@ -94,8 +105,8 @@ describe('StorageService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'pending',
-      createdAt: Date.now(),
-      expiresAt: past,
+      createdAt: new Date(),
+      expiresAt: new Date(past),
     });
 
     await service.save({
@@ -107,8 +118,8 @@ describe('StorageService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'pending',
-      createdAt: Date.now(),
-      expiresAt: future,
+      createdAt: new Date(),
+      expiresAt: new Date(future),
     });
 
     await service.save({
@@ -120,8 +131,8 @@ describe('StorageService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'completed',
-      createdAt: Date.now(),
-      expiresAt: past, // expired but already completed
+      createdAt: new Date(),
+      expiresAt: new Date(past), // expired but already completed
     });
 
     const purged = await service.purgeExpired();
@@ -144,7 +155,7 @@ describe('StorageService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'pending',
-      createdAt: 0,
+      createdAt: new Date(0),
       expiresAt: null,
     });
 

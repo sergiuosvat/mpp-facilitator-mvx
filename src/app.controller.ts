@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   Controller,
   Get,
@@ -121,6 +124,140 @@ export class AppController {
     res.status(500).send('Unexpected status');
   }
 
+  @Get('session-resource')
+  async getSessionResource(
+    @Req() req: ExpressRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const fetchReq = new Request(fullUrl, {
+      method: req.method,
+      headers: req.headers as HeadersInit,
+    });
+
+    const amount =
+      (req.query.amount as string) ||
+      process.env.MPP_DEFAULT_AMOUNT ||
+      '1000000000000000000';
+
+    const opaque = req.query.opaque as string;
+    const digest = req.get('Digest');
+    const meta = opaque ? { data: opaque } : undefined;
+
+    const composeResult = this.mppxService.instance.compose([
+      this.mppxService.mvxSessionMethod._method,
+      { amount, digest, meta },
+    ]);
+    const result = await composeResult(fetchReq);
+
+    if (result.status === 402) {
+      const challengeResponse = result.challenge as Response;
+
+      challengeResponse.headers.forEach((val: string, key: string) =>
+        res.setHeader(key, val),
+      );
+
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/problem+json');
+
+      const challengeStr = await challengeResponse.text();
+      const idMatch = challengeStr.match(/id="([^"]+)"/);
+      const challengeId = idMatch ? idMatch[1] : undefined;
+
+      const problemDetail = {
+        type: 'https://mpp.dev/errors/payment-required',
+        title: 'Payment Required',
+        status: 402,
+        detail: `This resource requires a session payment of ${amount} units.`,
+        challengeId,
+        challenge: challengeStr,
+      };
+
+      res.status(402).json(problemDetail);
+      return;
+    }
+
+    if (result.status === 200) {
+      const receiptResponse = result.withReceipt(
+        new Response('Here is your continuous session data stream...'),
+      );
+      (receiptResponse as Response).headers.forEach(
+        (val: string, key: string) => res.setHeader(key, val),
+      );
+      res.status(200).send(await (receiptResponse as Response).text());
+      return;
+    }
+
+    res.status(500).send('Unexpected status');
+  }
+
+  @Get('subscription-resource')
+  async getSubscriptionResource(
+    @Req() req: ExpressRequest,
+    @Res() res: ExpressResponse,
+  ) {
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const fetchReq = new Request(fullUrl, {
+      method: req.method,
+      headers: req.headers as HeadersInit,
+    });
+
+    const amount =
+      (req.query.amount as string) ||
+      process.env.MPP_DEFAULT_AMOUNT ||
+      '1000000000000000000';
+
+    const opaque = req.query.opaque as string;
+    const digest = req.get('Digest');
+    const meta = opaque ? { data: opaque } : undefined;
+
+    const composeResult = this.mppxService.instance.compose([
+      this.mppxService.mvxSubscriptionMethod._method,
+      { amount, digest, meta },
+    ]);
+    const result = await composeResult(fetchReq);
+
+    if (result.status === 402) {
+      const challengeResponse = result.challenge as Response;
+
+      challengeResponse.headers.forEach((val: string, key: string) =>
+        res.setHeader(key, val),
+      );
+
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/problem+json');
+
+      const challengeStr = await challengeResponse.text();
+      const idMatch = challengeStr.match(/id="([^"]+)"/);
+      const challengeId = idMatch ? idMatch[1] : undefined;
+
+      const problemDetail = {
+        type: 'https://mpp.dev/errors/payment-required',
+        title: 'Payment Required',
+        status: 402,
+        detail: `This resource requires a subscription payment of ${amount} units.`,
+        challengeId,
+        challenge: challengeStr,
+      };
+
+      res.status(402).json(problemDetail);
+      return;
+    }
+
+    if (result.status === 200) {
+      const receiptResponse = result.withReceipt(
+        new Response('Welcome to your premium subscription content!'),
+      );
+      (receiptResponse as Response).headers.forEach(
+        (val: string, key: string) => res.setHeader(key, val),
+      );
+      res.status(200).send(await (receiptResponse as Response).text());
+      return;
+    }
+
+    res.status(500).send('Unexpected status');
+  }
+
   @Post('submit_relayed_v3')
   async submitRelayedV3(
     @Body() payload: RelayedV3Payload,
@@ -177,11 +314,11 @@ export class AppController {
       currency: body.currency || 'EGLD',
       chainId: body.chainId || 'D',
       status: 'pending',
-      createdAt: Date.now(),
-      expiresAt: body.expiresAt || undefined,
-      opaque: body.opaque || undefined,
-      digest: body.digest || undefined,
-      source: body.source || undefined,
+      createdAt: new Date(),
+      expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+      opaque: body.opaque || null,
+      digest: body.digest || null,
+      source: body.source || null,
     });
     return { success: true, challengeId: body.id };
   }

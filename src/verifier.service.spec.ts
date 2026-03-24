@@ -1,5 +1,6 @@
 import { VerifierService } from './verifier.service';
 import { StorageService, SettlementRecord } from './storage.service';
+import { PrismaService } from './prisma.service';
 import { Address } from '@multiversx/sdk-core';
 
 // Mock the ApiNetworkProvider
@@ -12,6 +13,7 @@ jest.mock('@multiversx/sdk-network-providers', () => ({
 describe('VerifierService', () => {
   let service: VerifierService;
   let storageService: StorageService;
+  let prisma: PrismaService;
   let mockGetTransaction: jest.Mock;
   let challengeCounter = 0;
 
@@ -27,18 +29,32 @@ describe('VerifierService', () => {
       currency: 'EGLD',
       chainId: 'D',
       status: 'pending',
-      createdAt: Date.now(),
-      expiresAt: new Date(Date.now() + 600000).toISOString(),
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 600000),
+      opaque: null,
+      digest: null,
+      source: null,
       ...overrides,
     };
   }
 
+  beforeAll(() => {
+    prisma = new PrismaService();
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   beforeEach(async () => {
-    storageService = new StorageService();
+    await prisma.settlementRecord.deleteMany();
+    storageService = new StorageService(prisma);
     service = new VerifierService(storageService);
 
     // Access the mocked provider
-    mockGetTransaction = (service as any).provider.getTransaction;
+    mockGetTransaction = (
+      service as unknown as { provider: { getTransaction: jest.Mock } }
+    ).provider.getTransaction;
   });
 
   it('should return error for non-existent challenge', async () => {
@@ -84,7 +100,7 @@ describe('VerifierService', () => {
 
   it('should reject expired challenges', async () => {
     const rec = makeRecord({
-      expiresAt: new Date(Date.now() - 60000).toISOString(),
+      expiresAt: new Date(Date.now() - 60000),
     });
     await storageService.save(rec);
 
@@ -313,6 +329,38 @@ describe('VerifierService', () => {
     );
     expect(result.success).toBe(false);
     expect(result.error).toContain('Expected ESDT transfer');
+  });
+
+  it('should verify successfully for valid ESDTTransfer', async () => {
+    const rec = makeRecord({ currency: 'USDC-c76f31', amount: '50000000' });
+    await storageService.save(rec);
+
+    const tokenHex = Buffer.from('USDC-c76f31').toString('hex');
+    let amountHex = BigInt(rec.amount).toString(16);
+    if (amountHex.length % 2 !== 0) amountHex = '0' + amountHex;
+    const data = `ESDTTransfer@${tokenHex}@${amountHex}@${Buffer.from(`mpp:${rec.id}`).toString('hex')}`;
+
+    mockGetTransaction.mockResolvedValue({
+      status: { isSuccessful: () => true },
+      sender: {
+        toBech32: () =>
+          'erd1qyu5wthld6uqvlv7h243upv9qmfh4u2daer09ry3nclpyv76y7xs36h90r',
+      },
+      receiver: {
+        toBech32: () => rec.receiver,
+      },
+      value: '0',
+      data: Buffer.from(data),
+    });
+
+    const result = await service.verifyTransaction(
+      '0x123',
+      'erd1qyu5wthld6uqvlv7h243upv9qmfh4u2daer09ry3nclpyv76y7xs36h90r',
+      rec.id,
+      '50000000',
+      'USDC-c76f31',
+    );
+    expect(result.success).toBe(true);
   });
 
   it('should verify successfully for valid MultiTransferESDT alias', async () => {

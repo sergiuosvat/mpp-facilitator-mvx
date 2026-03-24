@@ -1,12 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Mppx } from 'mppx/server';
-import { multiversx } from 'mppx-multiversx/server';
+import { charge, session, subscription } from 'mppx-multiversx/server';
 import { VerifierService } from './verifier.service';
 
 @Injectable()
 export class MppxService {
   public instance: any; // ReturnType<typeof Mppx.create> has generic issues in some TS versions
   public mvxChargeMethod: any;
+  public mvxSessionMethod: any;
+  public mvxSubscriptionMethod: any;
   private readonly logger = new Logger(MppxService.name);
 
   constructor(private verifierService: VerifierService) {
@@ -22,35 +24,66 @@ export class MppxService {
     const chainId = process.env.MPP_CHAIN_ID || 'D';
     const decimals = parseInt(process.env.MPP_TOKEN_DECIMALS || '18', 10);
 
-    this.mvxChargeMethod = multiversx({
-      decimals,
-      chainId,
-      currency,
-      verifyTransaction: async ({
+    const verifyCb = async ({
+      txHash,
+      sender,
+      challengeId,
+      amount,
+      currency: txCurrency,
+      source,
+      opaque,
+      digest,
+    }: {
+      txHash: string;
+      sender: string;
+      challengeId: string;
+      amount: string;
+      currency?: string;
+      source?: string;
+      opaque?: Record<string, string>;
+      digest?: string;
+      duration?: string;
+      interval?: string;
+    }) => {
+      return await this.verifierService.verifyTransaction(
         txHash,
         sender,
         challengeId,
         amount,
-        currency: txCurrency,
+        txCurrency || currency,
         source,
         opaque,
         digest,
-      }) => {
-        return await this.verifierService.verifyTransaction(
-          txHash,
-          sender,
-          challengeId,
-          amount,
-          txCurrency,
-          source,
-          opaque,
-          digest,
-        );
-      },
+      );
+    };
+
+    this.mvxChargeMethod = charge({
+      decimals,
+      chainId,
+      currency,
+      verifyTransaction: verifyCb,
+    });
+
+    this.mvxSessionMethod = session({
+      decimals,
+      chainId,
+      currency,
+      verifyTransaction: verifyCb,
+    });
+
+    this.mvxSubscriptionMethod = subscription({
+      decimals,
+      chainId,
+      currency,
+      verifyTransaction: verifyCb,
     });
 
     this.instance = Mppx.create({
-      methods: [this.mvxChargeMethod],
+      methods: [
+        this.mvxChargeMethod,
+        this.mvxSessionMethod,
+        this.mvxSubscriptionMethod,
+      ] as any[],
       realm: process.env.MPP_REALM || 'agentic-payments-mvx',
       secretKey,
     });

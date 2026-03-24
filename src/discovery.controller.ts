@@ -29,7 +29,7 @@ export class DiscoveryController {
           categories: ['blockchain', 'payments', 'multiversx'],
           documentation: 'https://mpp.dev',
           supportedMethods: ['multiversx'],
-          supportedIntents: ['charge'],
+          supportedIntents: ['charge', 'session', 'subscription'],
           termsOfService: `${baseUrl}/terms`,
         },
       },
@@ -53,6 +53,144 @@ export class DiscoveryController {
               defaultChainId: chainId,
               description: 'One-time payment to access the protected resource',
               paymentFlow: 'data-payload-tagging',
+            },
+            parameters: [
+              {
+                name: 'amount',
+                in: 'query',
+                description: 'The amount required for the service',
+                required: true,
+                schema: { type: 'string' },
+              },
+            ],
+            responses: {
+              '200': {
+                description:
+                  'Successful response — resource content delivered with Payment-Receipt header',
+                headers: {
+                  'Payment-Receipt': {
+                    schema: { type: 'string' },
+                    description: 'Base64-encoded payment receipt',
+                  },
+                },
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                    },
+                  },
+                },
+              },
+              '402': {
+                description: 'Payment Required',
+                headers: {
+                  'WWW-Authenticate': {
+                    schema: { type: 'string' },
+                    description:
+                      'Challenge string encoding the acceptable payment methods and amounts',
+                  },
+                },
+                content: {
+                  'application/problem+json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string' },
+                        title: { type: 'string' },
+                        status: { type: 'integer' },
+                        detail: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        '/session-resource': {
+          get: {
+            operationId: 'getSessionResource',
+            summary: 'Access a continuous resource requiring MPP Session',
+            description:
+              'Returns stream or continuous access. Requires a valid MPP Session credential in the Authorization header.',
+            'x-payment-info': {
+              intent: 'session',
+              method: 'multiversx',
+              defaultCurrency: currency,
+              defaultChainId: chainId,
+              duration: '1h',
+              description: 'Pre-paid session to access the protected resource',
+            },
+            parameters: [
+              {
+                name: 'amount',
+                in: 'query',
+
+                required: false,
+                schema: { type: 'string' },
+                description: 'Override the payment amount (in smallest unit)',
+              },
+            ],
+            responses: {
+              '200': {
+                description:
+                  'Successful response — resource content delivered with Payment-Receipt header',
+                headers: {
+                  'Payment-Receipt': {
+                    schema: { type: 'string' },
+                    description: 'Base64-encoded payment receipt',
+                  },
+                },
+                content: {
+                  'text/plain': {
+                    schema: { type: 'string' },
+                  },
+                },
+              },
+              '402': {
+                description:
+                  'Payment Required — returns a WWW-Authenticate challenge',
+                headers: {
+                  'WWW-Authenticate': {
+                    schema: { type: 'string' },
+                    description:
+                      'Payment challenge in the Payment authentication scheme',
+                  },
+                  'Cache-Control': {
+                    schema: { type: 'string', example: 'no-store' },
+                  },
+                },
+                content: {
+                  'application/problem+json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        type: { type: 'string' },
+                        title: { type: 'string' },
+                        status: { type: 'integer', example: 402 },
+                        detail: { type: 'string' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            security: [{ PaymentAuth: [] }],
+          },
+        },
+        '/subscription-resource': {
+          get: {
+            operationId: 'getSubscriptionResource',
+            summary: 'Access a premium resource requiring MPP Subscription',
+            description:
+              'Returns premium content access. Requires a valid MPP Subscription credential in the Authorization header.',
+            'x-payment-info': {
+              intent: 'subscription',
+              method: 'multiversx',
+              defaultCurrency: currency,
+              defaultChainId: chainId,
+              interval: 'monthly',
+              description: 'Recurring subscription to access premium features',
             },
             parameters: [
               {

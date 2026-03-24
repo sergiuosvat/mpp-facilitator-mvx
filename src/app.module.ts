@@ -6,12 +6,14 @@ import { VerifierService } from './verifier.service';
 import { MppxService } from './mppx.service';
 import { RelayerService } from './relayer.service';
 import { DiscoveryController } from './discovery.controller';
+import { PrismaService } from './prisma.service';
 
 @Module({
   imports: [],
   controllers: [AppController, DiscoveryController],
   providers: [
     AppService,
+    PrismaService,
     StorageService,
     VerifierService,
     MppxService,

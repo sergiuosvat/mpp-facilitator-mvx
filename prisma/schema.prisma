@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SettlementRecord {
+  id        String    @id
+  txHash    String    @default("")
+  payer     String
+  receiver  String
+  amount    String
+  currency  String
+  chainId   String
+  status    String    @default("pending")
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+  opaque    String?
+  digest    String?
+  source    String?
+}

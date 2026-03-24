@@ -1,4 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { DiscoveryController } from './discovery.controller';
+import { Response } from 'express';
 
 describe('DiscoveryController', () => {
   let controller: DiscoveryController;
@@ -21,7 +24,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should return valid OpenAPI 3.1.0 document', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const responseHeaders: Record<string, string> = {};
     let responseStatus: number = 0;
 
@@ -35,7 +38,7 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
@@ -47,7 +50,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should include x-service-info in info section', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const mockRes = {
       setHeader: () => {},
       status: () => ({
@@ -55,7 +58,7 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
@@ -68,7 +71,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should include x-payment-info on protected-resource operation', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const mockRes = {
       setHeader: () => {},
       status: () => ({
@@ -76,7 +79,7 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
@@ -89,7 +92,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should declare 402 response with WWW-Authenticate header', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const mockRes = {
       setHeader: () => {},
       status: () => ({
@@ -97,7 +100,7 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
@@ -108,7 +111,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should include Payment security scheme', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const mockRes = {
       setHeader: () => {},
       status: () => ({
@@ -116,7 +119,7 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
@@ -126,7 +129,7 @@ describe('DiscoveryController', () => {
   });
 
   it('should include all API paths', () => {
-    let responseBody: any;
+    let responseBody: Record<string, any> = {};
     const mockRes = {
       setHeader: () => {},
       status: () => ({
@@ -134,11 +137,12 @@ describe('DiscoveryController', () => {
           responseBody = body;
         },
       }),
-    } as any;
+    } as unknown as Response;
 
     controller.getOpenApiSpec(mockRes);
 
     expect(responseBody.paths['/protected-resource']).toBeDefined();
+    expect(responseBody.paths['/session-resource']).toBeDefined();
     expect(responseBody.paths['/submit_relayed_v3']).toBeDefined();
     expect(responseBody.paths['/relayer_address']).toBeDefined();
     expect(responseBody.paths['/challenges']).toBeDefined();
